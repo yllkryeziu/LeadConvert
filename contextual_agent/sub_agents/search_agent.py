@@ -21,19 +21,22 @@ root_agent = Agent(
     tools=[google_search],
 )
 
-# Session and Runner
-async def setup_session_and_runner() -> tuple[Session, Runner]:
+async def setup_session_service():
     session_service = InMemorySessionService()
-    session = await session_service.create_session(app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID)
-    runner = Runner(agent=root_agent, app_name=APP_NAME, session_service=session_service)
-    return session, runner
+    await session_service.create_session(
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id=SESSION_ID,
+    )
+    return session_service
 
 # Agent Interaction
-async def call_agent_async(query: str) -> str:
+def call_agent(query: str) -> str:
     content = types.Content(role='user', parts=[types.Part(text=query)])
-    _, runner = await setup_session_and_runner()
-    events = runner.run_async(user_id=USER_ID, session_id=SESSION_ID, new_message=content)
-    async for event in events:
+    session_service = asyncio.run(setup_session_service())
+    runner = Runner(agent=root_agent, app_name=APP_NAME, session_service=session_service)
+    events = runner.run(user_id=USER_ID, session_id=SESSION_ID, new_message=content)
+    for event in events:
         if event.is_final_response():
             final_response = event.content.parts[0].text
             return final_response
@@ -45,7 +48,7 @@ def extract_json(text: str) -> dict:
     except (IndexError, json.JSONDecodeError):
         return None
 
-async def get_top_results(context_data: ContextData) -> TopResults:
+def get_top_results(context_data: ContextData) -> TopResults:
     profile = context_data.get_profile()
     client = context_data.get_client()
     criterias = context_data.get_criterias()
@@ -67,7 +70,7 @@ async def get_top_results(context_data: ContextData) -> TopResults:
     prompt = query + constraint
     retry_count = 5
     while retry_count > 0:
-        response = await call_agent_async(prompt)
+        response = call_agent(prompt)
         results = extract_json(response)
         if results:
             try:
@@ -77,7 +80,7 @@ async def get_top_results(context_data: ContextData) -> TopResults:
         retry_count -= 1
     return TopResults(results=[])
 
-async def extract_metadata(matter: str) -> Metadata | None:
+def extract_metadata(matter: str) -> Metadata | None:
     query = f"What is '{matter}'?"
     constraint ="""Only return the JSON object, do not include any other text.
     IMPORTANT: Return your response as a JSON object matching this structure:
@@ -95,7 +98,7 @@ async def extract_metadata(matter: str) -> Metadata | None:
     prompt = query + constraint
     retry_count = 5
     while retry_count > 0:
-        response = await call_agent_async(prompt)
+        response = call_agent(prompt)
         result = extract_json(response)
         if result:
             try:
@@ -107,7 +110,7 @@ async def extract_metadata(matter: str) -> Metadata | None:
 
 def process_context_data(data: dict):
     context_data = ContextData(**data)
-    results = asyncio.run(get_top_results(context_data)).results
+    results = get_top_results(context_data).results
     final_results = []
     for result in results:
         if result is None:
@@ -117,7 +120,9 @@ def process_context_data(data: dict):
         if name is None or location is None:
             continue
         matter = f"{name} in {location}"
-        final_results.append(asyncio.run(extract_metadata(matter)))
+        metadata = extract_metadata(matter)
+        if metadata:
+            final_results.append(metadata)
     return final_results
 
 
