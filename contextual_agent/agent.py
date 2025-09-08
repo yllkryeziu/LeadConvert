@@ -1,8 +1,9 @@
 from google.adk.agents import Agent
+from google.adk.agents.sequential_agent import SequentialAgent
 from typing import Optional, List, Dict, Any
 import json
+from .sub_agents.profile_checker_agent import profile_checker_agent
 
-# Global client profile state with the new 'core_messaging' section
 client_profile: Dict[str, Any] = {
   "user_info": {
     "service_provided": "",
@@ -143,17 +144,21 @@ def present_client_profile() -> None:
         print(f"⚠️ Error pushing profile: {e}")
 
 
-# Agent definition
-root_agent = Agent(
+# Main contextual agent with sub-agents
+contextual_agent = Agent(
     name="contextual_agent",
     model="gemini-2.5-pro",
     description="An agent that interviews a user to build a detailed 'Ideal Client Profile' for sales and lead generation.",
     instruction="""
         Your primary goal is to have a friendly, collaborative conversation to help me build a detailed profile of my ideal client. You should be proactive and helpful.
 
+        **IMPORTANT: Always start the conversation with a warm, friendly introduction when you first meet a user. Don't wait for them to speak first.**
+        
+        **Special Trigger:** When you receive "START_CONVERSATION" as input, this means it's a new conversation and you should immediately send your friendly introduction without waiting for user input.
+
         **Conversation Flow:**
 
-        1.  **Introduction:** Start with a friendly introduction.
+        1.  **Introduction:** Start with a friendly introduction immediately when the conversation begins. Say something like: "Hello! I'm here to help you build a detailed ideal client profile for your business. This will help you identify the best prospects for your sales and marketing efforts. Let's get started! First, tell me about your service - what do you provide to your clients?"
         
         2.  **About the User:** Ask me about my service and what makes it unique (`service_provided`, `unique_value_prop`).
 
@@ -178,7 +183,11 @@ root_agent = Agent(
         **General Rules:**
         - Keep the conversation natural by asking about only one or two things at a time.
         - After you get new information and use the `update_client_profile` tool, **immediately** call the `present_client_profile` tool to show me the updated profile.
-        - Once all fields are filled, ask me to confirm if everything looks correct. If I agree, present the final profile one last time.
+        - When you think the profile might be complete, call the ProfileCheckerAgent sub-agent to verify if all required fields are filled.
+        - Once the ProfileCheckerAgent confirms the profile is complete (returns "yes"), ask me to confirm if everything looks correct. If I agree, present the final profile one last time.
     """,
-    tools=[update_client_profile, present_client_profile]
+    tools=[update_client_profile, present_client_profile],
+    sub_agents=[profile_checker_agent]
 )
+
+root_agent = contextual_agent

@@ -31,7 +31,6 @@ def log_to_file(message: str):
         f.write(f"[{timestamp}] {message}\n")
         f.write('\n')
 
-# Clear previous logs and start fresh for this call
 with open(log_file, 'w', encoding='utf-8') as f:
     f.write(f"=== CONTEXTUAL AGENT LOG - {datetime.now().isoformat()} ===\n\n")
 
@@ -64,11 +63,12 @@ class ContextualAgentExecutor(AgentExecutor):
             )
         )
 
-        # Extract user message from context
         user_message: str = "Hello, I need help building my ideal client profile."
         ui_client_url = DEFAULT_UI_CLIENT_URL
+        is_first_message = True  # Track if this is the first interaction
 
         if context.message and context.message.parts:
+            is_first_message = False  # User has sent a message, so not first interaction
             for part_union in context.message.parts:
                 part = part_union.root
                 if isinstance(part, DataPart):
@@ -83,14 +83,12 @@ class ContextualAgentExecutor(AgentExecutor):
                     if "ui_client_url" in part.data:
                         ui_client_url = part.data["ui_client_url"]
 
-        # Prepare input for ADK Agent
         agent_input_dict = {
             "message": user_message,
             "ui_client_url": ui_client_url,
             "operation": "build_client_profile"
         }
         
-        # Create ADK content
         adk_content = genai_types.Content(
             parts=[
                 genai_types.Part(text=user_message),
@@ -98,11 +96,11 @@ class ContextualAgentExecutor(AgentExecutor):
             ]
         )
 
-        # Session handling
         session_id_for_adk = context.context_id
         logger.info(f"Task {context.task_id}: Using ADK session_id: '{session_id_for_adk}'")
 
         session: Session | None = None
+        is_new_session = False
         if session_id_for_adk:
             try:
                 session = await self._adk_runner.session_service.get_session(
@@ -115,6 +113,7 @@ class ContextualAgentExecutor(AgentExecutor):
                 session = None
 
             if not session:
+                is_new_session = True
                 logger.info(f"Task {context.task_id}: Creating new ADK session")
                 try:
                     session = await self._adk_runner.session_service.create_session(
@@ -149,6 +148,17 @@ class ContextualAgentExecutor(AgentExecutor):
         try:
             logger.info(f"Task {context.task_id}: Calling ADK run_async")
             final_result = {"status": "completed", "conversation": "active"}
+            
+            # For new sessions with no user message, send a system message to trigger the agent
+            if is_new_session and is_first_message:
+                user_message = "START_CONVERSATION"  # System trigger for the agent to begin
+                agent_input_dict["operation"] = "start_new_conversation"
+                adk_content = genai_types.Content(
+                    parts=[
+                        genai_types.Part(text=user_message),
+                        genai_types.Part(text=json.dumps(agent_input_dict))
+                    ]
+                )
             
             async for event in self._adk_runner.run_async(
                 user_id="a2a_user",
