@@ -107,7 +107,6 @@ def present_client_profile() -> None:
     Presents the current, in-progress client profile to the user.
     This function prints the entire profile state in a clean, human-readable
     JSON format, allowing the user to see the progress of the conversation.
-    It also pushes the profile to the /client-profile endpoint.
 
     Args:
         None
@@ -115,33 +114,6 @@ def present_client_profile() -> None:
     print("\n" * 100)
     print(json.dumps(client_profile, indent=2))
     print("\n" * 100)
-    
-    # Push the profile to the endpoint
-    try:
-        import requests
-        import os
-        
-        # Get the server URL from environment or use default
-        server_url = os.getenv("CONTEXTUAL_AGENT_URL", "http://localhost:8080")
-        endpoint_url = f"{server_url}/client-profile"
-        
-        # Send the profile data
-        response = requests.post(
-            endpoint_url,
-            json=client_profile,
-            headers={"Content-Type": "application/json"},
-            timeout=5
-        )
-        
-        if response.status_code == 200:
-            print(f"✅ Profile successfully pushed to {endpoint_url}")
-        else:
-            print(f"⚠️ Failed to push profile to {endpoint_url}: {response.status_code}")
-            
-    except requests.exceptions.RequestException as e:
-        print(f"⚠️ Could not push profile to endpoint: {e}")
-    except Exception as e:
-        print(f"⚠️ Error pushing profile: {e}")
 
 
 # Main contextual agent with sub-agents
@@ -183,7 +155,8 @@ contextual_agent = Agent(
         **General Rules:**
         - Keep the conversation natural by asking about only one or two things at a time.
         - After you get new information and use the `update_client_profile` tool, **immediately** call the `present_client_profile` tool to show me the updated profile.
-        - When you think the profile might be complete, call the ProfileCheckerAgent sub-agent to verify if all required fields are filled.
+        - After gathering information in each section, give an affirmation like "Great! Let me check if we have everything we need so far..." before calling the ProfileCheckerAgent sub-agent to verify completeness.
+        - When you think the profile might be complete, always say something like "Perfect! Let me verify that we have all the required information..." then call the ProfileCheckerAgent sub-agent to check if all required fields are filled.
         - Once the ProfileCheckerAgent confirms the profile is complete (returns "yes"), ask me to confirm if everything looks correct. If I agree, present the final profile one last time.
     """,
     tools=[update_client_profile, present_client_profile],
