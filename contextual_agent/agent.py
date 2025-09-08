@@ -106,6 +106,7 @@ def present_client_profile() -> None:
     Presents the current, in-progress client profile to the user.
     This function prints the entire profile state in a clean, human-readable
     JSON format, allowing the user to see the progress of the conversation.
+    It also pushes the profile to the /client-profile endpoint.
 
     Args:
         None
@@ -113,6 +114,33 @@ def present_client_profile() -> None:
     print("\n" * 100)
     print(json.dumps(client_profile, indent=2))
     print("\n" * 100)
+    
+    # Push the profile to the endpoint
+    try:
+        import requests
+        import os
+        
+        # Get the server URL from environment or use default
+        server_url = os.getenv("CONTEXTUAL_AGENT_URL", "http://localhost:8080")
+        endpoint_url = f"{server_url}/client-profile"
+        
+        # Send the profile data
+        response = requests.post(
+            endpoint_url,
+            json=client_profile,
+            headers={"Content-Type": "application/json"},
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            print(f"✅ Profile successfully pushed to {endpoint_url}")
+        else:
+            print(f"⚠️ Failed to push profile to {endpoint_url}: {response.status_code}")
+            
+    except requests.exceptions.RequestException as e:
+        print(f"⚠️ Could not push profile to endpoint: {e}")
+    except Exception as e:
+        print(f"⚠️ Error pushing profile: {e}")
 
 
 # Agent definition
