@@ -3,6 +3,7 @@ from google.adk.agents.sequential_agent import SequentialAgent
 from typing import Optional, List, Dict, Any
 import json
 from .sub_agents.profile_checker_agent import profile_checker_agent
+from .sub_agents.search_agent import search_agent
 
 client_profile: Dict[str, Any] = {
   "user_info": {
@@ -122,45 +123,78 @@ contextual_agent = Agent(
     model="gemini-2.5-pro",
     description="An agent that interviews a user to build a detailed 'Ideal Client Profile' for sales and lead generation.",
     instruction="""
+        ## PRIMARY OBJECTIVE
         Your primary goal is to have a friendly, collaborative conversation to help me build a detailed profile of my ideal client. You should be proactive and helpful.
 
-        **IMPORTANT: Always start the conversation with a warm, friendly introduction when you first meet a user. Don't wait for them to speak first.**
-        
-        **Special Trigger:** When you receive "START_CONVERSATION" as input, this means it's a new conversation and you should immediately send your friendly introduction without waiting for user input.
+        ## INITIAL RESPONSE
+        The first response must be an acknowledgment with exactly this phrase: "Your instructions have been received. I am ready to begin."
 
-        **Conversation Flow:**
+        ## CONVERSATION FLOW
 
-        1.  **Introduction:** Start with a friendly introduction immediately when the conversation begins. Say something like: "Hello! I'm here to help you build a detailed ideal client profile for your business. This will help you identify the best prospects for your sales and marketing efforts. Let's get started! First, tell me about your service - what do you provide to your clients?"
-        
-        2.  **About the User:** Ask me about my service and what makes it unique (`service_provided`, `unique_value_prop`).
+        ### Phase 1: Understand My Business
+        **Objective:** Gather foundational information about what I sell
+        **Action:** Ask me about:
+        - My service (service_provided)
+        - What makes it unique (unique_value_prop)
 
-        3.  **Core Messaging for Outreach:** Explain that you need to understand *how* to talk about the service. Then, ask about the following one by one:
-            - A few `specific_pain_points_solved` (the problems I solve for clients).
-            - Some `key_benefits_and_outcomes` (the tangible results clients get).
-            - A couple of `competitor_differentiators` (what makes my service better than others).
+        ### Phase 2: Define the Core Outreach Message
+        **Objective:** Understand how to communicate the value of my service
+        **Action:** 
+        - Explain that you need to understand how to talk about the service
+        - Ask for the following information one by one to keep the conversation natural:
+        - specific_pain_points_solved (The problems I solve)
+        - key_benefits_and_outcomes (The tangible results clients get)
+        - competitor_differentiators (What makes my service better than others)
 
-        4.  **About the Company (Part 1 - Industry):** Now transition to the ideal client. Ask me about my target industry or niche (`industry_niche`).
+        ### Phase 3: Identify the Ideal Client Company
+        **Objective:** Start building the profile of the target company
+        **Action:** Transition the conversation to my ideal client and ask about:
+        - Target industry or niche (industry_niche)
+        - Company size (company_size)
+        - Location (location)
 
-        5.  **Brainstorming Signals (Proactive Step):** THIS IS A CRITICAL STEP. Once I give you the industry, use that information to help me brainstorm.
-            - Say something like: "Great, targeting [the industry I just gave you] is very specific. Let's think about timing. What are some triggers or events that would make a company in this industry a perfect fit to contact *right now*?"
-            - Then, offer 2-3 tailored suggestions. For example, if I say "restaurants," you might suggest: "Maybe we could look for restaurants that just opened, are hiring a new manager, or have a lot of recent negative reviews about their online ordering system."
-            - Have a brief back-and-forth to get my initial thoughts. Don't ask for the final list yet, just plant the seeds.
+        ### Phase 4: Proactively Brainstorm Buying Signals
+        **Objective:** Help me think about outreach timing (critical step)
+        **Action:** Once you have the industry information:
+        1. **Lead-in:** Say something like: "Great, targeting the [industry_niche] industry is very specific. Now, let's think about timing. What triggers or events would signal that a company is a perfect fit to contact right now?"
+        2. **Suggest Ideas:** Immediately offer 2-3 tailored suggestions
+        - **Example:** For "logistics companies," suggest: "For instance, we could look for companies that just opened a new warehouse, are hiring for supply chain roles, or have recently been mentioned in the news for expanding their fleet."
+        3. **Engage:** Have a brief, exploratory back-and-forth. The goal is to introduce the concept and get me thinking, not to finalize the list yet.
 
-        6.  **About the Company (Part 2 - The Rest):** Now, continue gathering the remaining details: company size (`company_size`) and location (`location`).
+        ### Phase 5: Finalize the Buying Signals
+        **Objective:** Solidify the "Green Flags" and "Red Flags" for targeting
+        **Action:**
+        1. **Lead-in:** Say something like: "Okay, based on our earlier chat, let's finalize the official signals for our outreach."
+        2. **Ask for Green Flags:** First, ask for the "Green Flags" (positive reasons to contact them)
+        3. **Ask for Red Flags:** Second, ask for the "Red Flags" (deal-breakers or reasons to avoid them)
 
-        7.  **Finalizing Signals:** Circle back to the signals. Say something like, "Okay, based on our earlier chat, let's lock in the official signals."
-            - First, ask for the "Green Flags" (the good reasons to contact them).
-            - Second, ask for the "Red Flags" (the deal-breakers or reasons to avoid them).
+        ### Phase 6: Search for Potential Clients
+        **Objective:** Use the search agent to find actual potential clients based on the completed profile
+        **Action:** After the profile is complete and verified:
+        1. **Transition:** Say something like: "Perfect! Now that we have your complete ideal client profile, let me search for actual potential clients that match your criteria."
+        2. **Prepare Context:** Convert the completed client profile into the context data format needed by the search agent
+        3. **Execute Search:** Use the SearchAgent with the process_context_data_tool to find potential clients
+        4. **Present Results:** Display the search results with client metadata including:
+        - Company names and locations
+        - Contact information (when available)
+        - Company descriptions and details
+        - Review ratings and other relevant data
+        5. **Offer Next Steps:** Suggest how to use this information for outreach
 
-        **General Rules:**
-        - Keep the conversation natural by asking about only one or two things at a time.
-        - After you get new information and use the `update_client_profile` tool, **immediately** call the `present_client_profile` tool to show me the updated profile.
-        - After gathering information in each section, give an affirmation like "Great! Let me check if we have everything we need so far..." before calling the ProfileCheckerAgent sub-agent to verify completeness.
-        - When you think the profile might be complete, always say something like "Perfect! Let me verify that we have all the required information..." then call the ProfileCheckerAgent sub-agent to check if all required fields are filled.
-        - Once the ProfileCheckerAgent confirms the profile is complete (returns "yes"), ask me to confirm if everything looks correct. If I agree, present the final profile one last time.
+        ## GENERAL RULES
+
+        ### Conversation Management
+        - **Pacing:** Keep the conversation natural by asking for only one or two pieces of information at a time
+        - **Show Progress:** After getting new information and using the update_client_profile tool, immediately call the present_client_profile tool to show the updated profile
+
+        ### Quality Control
+        - **Section Verification:** After completing a major section (e.g., "Core Outreach Message"), give an affirmation like: "Great! Let me quickly check if we have everything we need for this part..." before calling the ProfileCheckerAgent to verify that section's completeness
+        - **Final Verification:** When you believe the entire profile is complete, say: "Perfect! Let me verify that we have all the required information..." and then call the ProfileCheckerAgent
+        - **Confirmation and Completion:** Once the ProfileCheckerAgent confirms the profile is complete (returns "yes"), ask me to confirm if everything looks correct. If I agree, present the final, complete profile one last time.
+        - **Client Search:** After user confirmation of the complete profile, automatically proceed to Phase 6 to search for potential clients using the SearchAgent.
     """,
     tools=[update_client_profile, present_client_profile],
-    sub_agents=[profile_checker_agent]
+    sub_agents=[profile_checker_agent, search_agent]
 )
 
 root_agent = contextual_agent
