@@ -4,26 +4,46 @@ from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.tools import google_search
 from google.adk.tools import FunctionTool
-from .tools import perform_research, build_persona
+from google.adk.tools.langchain_tool import LangchainTool
+from langchain_community.tools import TavilySearchResults
+from .tools import build_persona
 
 load_dotenv()
 
 #--------------------------------[positive_critic]----------------------------------
+# Tavily via LangChain wrapped as an ADK tool
+_tavily_search = TavilySearchResults(
+    max_results=5,
+    search_depth="advanced",
+    include_answer=True,
+    include_raw_content=True,
+    include_images=False,
+)
+_adk_tavily_tool = LangchainTool(tool=_tavily_search)
+
 research_agent = Agent(
     name = "research_agent",
     model = "gemini-2.0-flash",
      description="Gather mission, values, and news summaries.",
     instruction=(
         """
-        MAKE USE OF THE RESEARSH TOOL TO GATHER INFORMATION 
+        USE THE TAVILY SEARCH TOOL (VIA LANGCHAIN) TO GATHER INFORMATION
         You are the Research Agent.
         Goal: Identify and compile authoritative information for the target company, with special
         focus on contact details and recent credible updates.
 
         Required steps:
         1) Determine the company name from the state or the latest user message.
-        2) Call perform_research(company_name) using the provided tool to collect source content
-           (mission, values, press/news, about pages, etc.).
+        2) Use the Tavily search tool to collect source content (mission, values, press/news,
+           about pages, leadership, product pages, careers, contact info, etc.). Make multiple
+           targeted queries such as:
+           - "company_name official site about mission values"
+           - "company_name press newsroom recent announcements"
+           - "company_name product platform overview"
+           - "company_name leadership team"
+           - "company_name careers hiring"
+           - "company_name contact email"
+           - "company_name contact phone number"
         3) From the collected content and your own reasoning, extract:
            - primary_contact_emails: up to 3 likely official emails
            - primary_contact_phones: up to 3 likely official phone numbers
@@ -43,10 +63,10 @@ research_agent = Agent(
         }
 
         If any field is unknown, set it to null or an empty array as appropriate.
-        DONT MOVE TO NEXT STEP UNTIL RESEARCH TOOL CALLED
+        DONT MOVE TO NEXT STEP UNTIL THE TAVILY TOOL HAS BEEN CALLED AND SUMMARIZED
         """
     ),
-    tools=[FunctionTool(perform_research)],
+    tools=[_adk_tavily_tool],
     output_key="research",                   
 )    
 
