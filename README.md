@@ -1,6 +1,12 @@
-# 🤖 AI Agent Orchestration Platform - Google Hackathon 2025
+# 🚀 LeadConvert - AI-Powered Lead Generation & Outreach Platform
 
-A sophisticated multi-agent AI system built with **Google Agent Development Kit (ADK)** and **Google Cloud Platform** for intelligent lead generation, brand optimization, and personalized research automation.
+**LeadConvert** is an intelligent multi-agent AI system that eliminates the tedious manual work of lead research and cold outreach for freelancers, consultants, and service providers. Built with **Google Agent Development Kit (ADK)** and **Google Cloud Platform**, it automatically discovers potential clients, researches their business needs, and generates personalized outreach content - so you can focus on what you do best instead of spending hours on prospecting.
+
+## 💡 Why LeadConvert?
+
+**The Problem**: Freelancers and service providers waste countless hours manually researching potential clients, crafting individual outreach emails, and often struggle to find the right prospects who actually need their services.
+
+**The Solution**: LeadConvert automates the entire process from prospect discovery to personalized email generation, using advanced AI agents to deliver high-quality leads and outreach content at scale.
 
 ## 🎯 Project Overview
 
@@ -284,49 +290,6 @@ client_profile: Dict[str, Any] = {
         "opportunity_signals": {...}
     }
 }
-```
-
-### Analytics & Monitoring
-- **Lead tracking**: Company discovery metrics
-- **Conversion analytics**: Profile completion rates  
-- **Performance monitoring**: Agent response times
-- **Search optimization**: Query effectiveness analysis
-
-## 🎮 Usage Examples
-
-### 1. Client Profile Building
-```bash
-# Start contextual agent
-python -m contextual_agent
-
-# Interactive conversation flow:
-# Phase 1: Business understanding
-# Phase 2: Core messaging definition  
-# Phase 3: Ideal client identification
-# Phase 4: Buying signals brainstorming
-# Phase 5: Final profile validation
-```
-
-### 2. Brand Search Optimization
-```python
-# Analyze brand presence
-brand_agent.analyze_brand("Nike")
-
-# Outputs:
-# - Keyword analysis and recommendations
-# - Competitor comparison analysis
-# - Search result optimization insights
-```
-
-### 3. Research Pipeline
-```python
-# Sequential research execution
-research_pipeline.execute("Acme Corporation")
-
-# Pipeline stages:
-# 1. Company research and analysis
-# 2. Persona generation
-# 3. Personalized email creation
 ```
 ---
 
