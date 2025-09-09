@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from google.adk.agents import SequentialAgent
 
-from .sub_agent import persona_creator, research_agent, email_creator
+from .sub_agent import persona_creator, research_agent, email_creator, email_sender
 
 load_dotenv()
 
@@ -13,6 +13,6 @@ load_dotenv()
 #  - `review_critic` runs last to review combined outputs and produce a final evaluation.
 root_agent = SequentialAgent(
     name="pipeline_agent",
-    sub_agents=[research_agent, persona_creator, email_creator],
-    description="This is an agent that sequentially executes agents(research_agent, persona_creator, email_creator)"
+    sub_agents=[research_agent, persona_creator, email_creator, email_sender],
+    description="This is an agent that sequentially executes agents(research_agent, persona_creator, email_creator, email_sender)"
 )

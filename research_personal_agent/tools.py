@@ -4,6 +4,9 @@ import re
 import logging
 # from tavily import TavilyClient
 from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 load_dotenv()
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
@@ -95,3 +98,44 @@ def draft_email(input_json: str) -> str:
         f"Best regards,\nYour Name"
     )
     return json.dumps({"subject": subject, "body": body})
+
+
+def send_email(receiver_email: str, receiver_name: str, subject: str, content: str) -> str:
+    """Send an email via SMTP.
+
+    Requires EMAIL_USER and EMAIL_PASSWORD in environment variables.
+    Returns JSON with status and optional error message.
+    """
+    print("Starting mail senfing process...")
+    email_user = os.getenv("EMAIL_USER")
+    email_password = os.getenv("EMAIL_PASSWORD")
+    email_name = os.getenv("EMAIL_NAME", "Noreply Smart Assistant")
+
+    if not email_user or not email_password:
+        return json.dumps({
+            "status": "error",
+            "error": "Missing EMAIL_USER or EMAIL_PASSWORD in environment"
+        })
+
+    message = MIMEMultipart()
+    message['From'] = f'"{email_name}" <{email_user}>'
+    message['To'] = f'"{receiver_name}" <{receiver_email}>'
+    message['Subject'] = subject
+    message.attach(MIMEText(content, 'plain'))
+
+    print("Sending mail to:", receiver_email)
+    print("Content of message:", content)
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(email_user, email_password)
+        server.send_message(message)
+        return json.dumps({"status": "success"})
+    except Exception as e:
+        return json.dumps({"status": "error", "error": str(e)})
+    finally:
+        try:
+            server.quit()
+        except Exception:
+            pass
