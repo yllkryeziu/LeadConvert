@@ -13,24 +13,26 @@ The platform consists of **4 primary agents** with **6 specialized sub-agents** 
 ```mermaid
 graph TD
     A[Contextual Agent] --> B[Profile Checker Sub-Agent]
-    A --> C[Search Agent via Cloud Run]
+    A --> D[Search Agent via Cloud Run]
     
     D[Search Agent] --> E[Google Search Tool]
     D --> F[Company Discovery Phase]
     D --> G[Metadata Extraction Phase]
+    D --> H[Brand Search Optimization]
     
     H[Brand Search Optimization] --> I[Keyword Finding Agent]
     H --> J[Search Results Agent]
     H --> K[Comparison Root Agent]
     
-    Q[Research Personal Agent] --> R[Research Agent]
+    D --> Q[Research Personal Agent]
+    Q --> R[Research Agent]
     Q --> S[Persona Creator]
     Q --> T[Email Creator]
     
     style A fill:#4285f4
     style D fill:#34a853
     style H fill:#ea4335
-    style Q fill:#fbbc04
+    style Q fill:#9c27b0
 ```
 
 ## ✨ Core Agents & Orchestration
