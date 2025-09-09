@@ -14,7 +14,37 @@ research_agent = Agent(
     model = "gemini-2.0-flash",
      description="Gather mission, values, and news summaries.",
     instruction=(
-        "Call tool_perform_research(company_name=(Gather this information from what context was passed)) and return the output."
+        """
+        MAKE USE OF THE RESEARSH TOOL TO GATHER INFORMATION 
+        You are the Research Agent.
+        Goal: Identify and compile authoritative information for the target company, with special
+        focus on contact details and recent credible updates.
+
+        Required steps:
+        1) Determine the company name from the state or the latest user message.
+        2) Call perform_research(company_name) using the provided tool to collect source content
+           (mission, values, press/news, about pages, etc.).
+        3) From the collected content and your own reasoning, extract:
+           - primary_contact_emails: up to 3 likely official emails
+           - primary_contact_phones: up to 3 likely official phone numbers
+           - official_website_url (if evident)
+           - key_links: up to 5 notable URLs (press page, about, contact)
+        4) Summarize 5-10 bullet points of the most relevant facts for sales context.
+
+        Output strictly as minified JSON with the following structure:
+        {
+          "company_name": string,
+          "research_text": string,          // raw or combined text from sources
+          "summary_bullets": [string],     // concise facts, 5-10 items
+          "primary_contact_emails": [string],
+          "primary_contact_phones": [string],
+          "official_website_url": string|null,
+          "key_links": [string]
+        }
+
+        If any field is unknown, set it to null or an empty array as appropriate.
+        DONT MOVE TO NEXT STEP UNTIL RESEARCH TOOL CALLED
+        """
     ),
     tools=[FunctionTool(perform_research)],
     output_key="research",                   
@@ -26,8 +56,38 @@ persona_creator = Agent(
     model = "gemini-2.0-flash",
      description="Builds a detailed persona from contacts and research.",
     instruction=(
-        "Call tool_build_persona(company_name=(from context information), contacts=(from context info)"
-        "research=\"{research}\") and return the output."
+        """
+        MAKE USE OF THE RESEARSH TOOL TO GATHER INFORMATION 
+        You are the Persona Agent.
+        Goal: Convert the prior research into a concise, actionable buyer persona tailored for a
+        personalized sales pitch.
+
+        Inputs available in state:
+        - research: JSON from the Research Agent, with keys like company_name, summary_bullets,
+          primary_contact_emails, primary_contact_phones, etc.
+
+        Steps:
+        1) Use research.company_name as the company_name. The research JSON is available as: {research}
+        2) Derive contacts (emails/phones) from research if present; otherwise leave arrays empty.
+        3) Build a persona including decision-makers if inferable, buyer motivations, likely pain
+           points, value drivers, and recommended tone.
+        4) Call build_persona(input_json) tool with a JSON string containing at least:
+           {
+             "company_name": string,
+             "contacts": {"emails": [string], "phone_numbers": [string]},
+             "research": {research}                    // pass through the research JSON
+           }
+
+        Return strictly minified JSON with:
+        {
+          "company": string,
+          "key_traits": string,            // comma-separated traits
+          "pain_points": string,           // comma-separated pains
+          "decision_makers": [string],     // titles or roles if inferable
+          "recommended_tone": string,      // e.g., "Formal and detailed"
+          "notes": [string]                // short bullets of insights
+        }
+        """
     ),
     tools=[FunctionTool(build_persona)],
     output_key="persona",                    
@@ -37,19 +97,34 @@ persona_creator = Agent(
 email_creator = Agent(
     name = "email_creator",
     model = "gemini-2.0-flash",
-    description = "An agent that reviews the positive and negative aspects of a user's question and summarizes it overall.",
+    description = "Compose a personalized, context-aware sales email using prior outputs.",
     instruction = f"""
-            You are an agent who provides and stiches all information from previous agents. 
-            * Research info ```{{research}}```  
-            * Persona created: ```{{persona}}```
+            You are the Email Agent.
+            Goal: Stitch together prior research and persona with the user's context to generate a
+            persuasive, personalized sales email.
 
-           Looking at this information. return a json output that stiches information in a json with: 
-           1. Company Name
-           2. Contact number if found
-           3. Email Id if found
-           4. Personal Email to be sent based on context of user requirements. 
+            Inputs available in state:
+            - research: JSON from Research Agent (may include contact emails/phones). Research: {{research}}
+            - persona: JSON from Persona Agent. Persona: {{persona}}
+            - user context: use the latest user message as the context for tailoring the email
 
-           Make sure the mail is well tailored according to the persona and previosu information gathered. 
-   
+            Output strictly as minified JSON with the structure:
+            {{
+              "company_name": string,
+              "to_emails": [string],            // select best contact(s) if present
+              "to_phones": [string],            // optional, for reference/follow-up
+              "subject": string,
+              "body": string                    // plain text, 120-220 words
+            }}
+
+            Email guidance:
+            - Subject: 6-10 words, value-forward, no clickbait.
+            - Opening: 1 sentence acknowledging company specifics from research/persona.
+            - Body: 2-3 short paragraphs mapping persona pain points to user’s product benefits.
+            - Personalization: Refer to 1-2 concrete details from research (e.g., a press release,
+              mission statement) and persona traits.
+            - CTA: 1 clear ask with two scheduling options or a low-friction alternative.
+            - Tone: Match persona.recommended_tone.
+            - Avoid hallucinating data; if uncertain, keep statements general and honest.
         """,
 )  
