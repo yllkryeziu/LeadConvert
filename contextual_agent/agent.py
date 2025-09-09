@@ -2,8 +2,8 @@ from google.adk.agents import Agent
 from google.adk.agents.sequential_agent import SequentialAgent
 from typing import Optional, List, Dict, Any
 import json
+import requests
 from .sub_agents.profile_checker_agent import profile_checker_agent
-from .sub_agents.search_agent import search_agent
 
 client_profile: Dict[str, Any] = {
   "user_info": {
@@ -117,6 +117,106 @@ def present_client_profile() -> None:
     print("\n" * 100)
 
 
+def send_to_search_agent(
+    profile_data: Dict[str, Any],
+    user_id: str = "contextual_agent_user",
+    session_id: str = "search_session"
+) -> Dict[str, Any]:
+    """
+    Sends the client profile data to the search agent running on Google Cloud Run.
+    This function creates a session and sends the profile data to find potential clients.
+
+    Args:
+        profile_data (Dict[str, Any]): The complete client profile to send to the search agent
+        user_id (str): The user ID for the session (defaults to "contextual_agent_user")
+        session_id (str): The session ID for the search (defaults to "search_session")
+
+    Returns:
+        Dict[str, Any]: The response from the search agent containing potential clients
+    """
+    base_url = "https://search-678974019191.europe-north1.run.app"
+    
+    try:
+        # Step 1: Create/Initialize session with the profile data as state
+        session_url = f"{base_url}/apps/search_agent/users/{user_id}/sessions/{session_id}"
+        session_payload = {
+            "state": {
+                "client_profile": profile_data,
+                "search_initiated": True
+            }
+        }
+        
+        print(f"Creating session at: {session_url}")
+        session_response = requests.post(
+            session_url,
+            headers={"Content-Type": "application/json"},
+            json=session_payload,
+            timeout=30
+        )
+        
+        if session_response.status_code not in [200, 201]:
+            return {
+                "error": f"Failed to create session: {session_response.status_code}",
+                "details": session_response.text
+            }
+        
+        # Step 2: Send search request message
+        search_url = f"{base_url}/run_sse"
+        search_message = f"Please search for potential clients based on this profile: {json.dumps(profile_data)}"
+        
+        search_payload = {
+            "app_name": "search_agent",
+            "user_id": user_id,
+            "session_id": session_id,
+            "new_message": {
+                "role": "user",
+                "parts": [{
+                    "text": search_message
+                }]
+            },
+            "streaming": False
+        }
+        
+        print(f"Sending search request to: {search_url}")
+        search_response = requests.post(
+            search_url,
+            headers={"Content-Type": "application/json"},
+            json=search_payload,
+            timeout=60
+        )
+        
+        if search_response.status_code == 200:
+            response_data = search_response.json()
+            return {
+                "success": True,
+                "session_created": True,
+                "search_results": response_data,
+                "message": "Successfully found potential clients matching your profile"
+            }
+        else:
+            return {
+                "error": f"Search request failed: {search_response.status_code}",
+                "details": search_response.text,
+                "session_created": True
+            }
+            
+    except requests.exceptions.Timeout:
+        return {
+            "error": "Request timed out",
+            "details": "The search agent took too long to respond"
+        }
+    except requests.exceptions.ConnectionError:
+        return {
+            "error": "Connection failed",
+            "details": "Could not connect to the search agent"
+        }
+    except Exception as e:
+        return {
+            "error": f"Unexpected error: {str(e)}",
+            "details": "An unexpected error occurred while communicating with the search agent"
+        }
+
+
 # Main contextual agent with sub-agents
 contextual_agent = Agent(
     name="contextual_agent",
@@ -168,19 +268,6 @@ contextual_agent = Agent(
         2. **Ask for Green Flags:** First, ask for the "Green Flags" (positive reasons to contact them)
         3. **Ask for Red Flags:** Second, ask for the "Red Flags" (deal-breakers or reasons to avoid them)
 
-        ### Phase 6: Search for Potential Clients
-        **Objective:** Use the search agent to find actual potential clients based on the completed profile
-        **Action:** After the profile is complete and verified:
-        1. **Transition:** Say something like: "Perfect! Now that we have your complete ideal client profile, let me search for actual potential clients that match your criteria."
-        2. **Prepare Context:** Convert the completed client profile into the context data format needed by the search agent
-        3. **Execute Search:** Use the SearchAgent with the process_context_data_tool to find potential clients
-        4. **Present Results:** Display the search results with client metadata including:
-        - Company names and locations
-        - Contact information (when available)
-        - Company descriptions and details
-        - Review ratings and other relevant data
-        5. **Offer Next Steps:** Suggest how to use this information for outreach
-
         ## GENERAL RULES
 
         ### Conversation Management
@@ -191,10 +278,9 @@ contextual_agent = Agent(
         - **Section Verification:** After completing a major section (e.g., "Core Outreach Message"), give an affirmation like: "Great! Let me quickly check if we have everything we need for this part..." before calling the ProfileCheckerAgent to verify that section's completeness
         - **Final Verification:** When you believe the entire profile is complete, say: "Perfect! Let me verify that we have all the required information..." and then call the ProfileCheckerAgent
         - **Confirmation and Completion:** Once the ProfileCheckerAgent confirms the profile is complete (returns "yes"), ask me to confirm if everything looks correct. If I agree, present the final, complete profile one last time.
-        - **Client Search:** After user confirmation of the complete profile, automatically proceed to Phase 6 to search for potential clients using the SearchAgent.
     """,
     tools=[update_client_profile, present_client_profile],
-    sub_agents=[profile_checker_agent, search_agent]
+    sub_agents=[profile_checker_agent]
 )
 
 root_agent = contextual_agent
