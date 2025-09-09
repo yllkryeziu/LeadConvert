@@ -1,0 +1,4 @@
+google-adk
+tavily-python
+langchain
+langchain-community 

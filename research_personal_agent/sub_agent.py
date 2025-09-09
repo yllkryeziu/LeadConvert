@@ -6,7 +6,7 @@ from google.adk.tools import google_search
 from google.adk.tools import FunctionTool
 from google.adk.tools.langchain_tool import LangchainTool
 from langchain_community.tools import TavilySearchResults
-from .tools import build_persona
+from .tools import build_persona, send_email
 
 load_dotenv()
 
@@ -147,4 +147,37 @@ email_creator = Agent(
             - Tone: Match persona.recommended_tone.
             - Avoid hallucinating data; if uncertain, keep statements general and honest.
         """,
-)  
+    output_key="email",
+)
+
+#--------------------------------[final_sender]----------------------------------
+email_sender = Agent(
+    name = "email_sender",
+    model = "gemini-2.0-flash",
+    description = "Parses the composed email and sends it to the best contact.",
+    instruction = (
+        f"""
+        You are the final Email Sender Agent.
+        Goal: Send the previously composed email to the most relevant contact using the send_email tool.
+
+        Inputs available in state:
+        - email: JSON from the previous step with keys {"company_name", "to_emails", "to_phones", "subject", "body"}. Email: {{email}}
+        - research: JSON from Research Agent, possibly including primary_contact_emails. Research: {{research}}
+        - persona: JSON from Persona Agent for context (optional). Persona: {{persona}}
+
+        Steps:
+        1) Choose receiver_email:
+           - Use mzainuddin51@gmail.com as receiver address
+           - Prefer email.to_emails[0] if available;
+           - Else prefer research.primary_contact_emails[0] if available;
+           - If neither available, return an error JSON.
+        2) Choose receiver_name as the company or "Team" if no specific name is available.
+        3) Call send_email(receiver_email, receiver_name, subject, content) where:
+           - subject = email.subject
+           - content = email.body
+
+        MUST CALL THE send_email TOOL TO COMPLETE THE TASK 
+        """
+    ),
+    tools=[FunctionTool(send_email)],
+)
