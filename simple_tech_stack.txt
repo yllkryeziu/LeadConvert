@@ -1,0 +1,40 @@
+LeadConvert - Simple Agent Flow
+===============================
+
+USER INPUT (Freelancer Profile)
+        ↓
+┌─────────────────────────┐
+│   CONTEXTUAL AGENT      │
+│    Gemini 2.5 Pro       │
+│                         │
+│ • Profile Builder       │
+│ • 5-Phase Conversation  │
+│ • Profile Checker       │
+└─────────┬───────────────┘
+          ↓
+┌─────────────────────────┐
+│    SEARCH AGENT         │
+│    Gemini 2.5 Pro       │
+│                         │
+│ • Company Discovery     │
+│ • Google Search API     │
+│ • Lead Extraction       │
+└─────────┬───────────────┘
+          ↓
+┌─────────────────────────┐
+│ RESEARCH AGENT          │
+│    Gemini Models        │
+│                         │
+│ • Company Research      │
+│ • Persona Creation      │
+│ • Email Generation      │
+└─────────┬───────────────┘
+          ↓
+OUTPUT (Personalized Leads & Emails)
+
+TECH STACK:
+• Google ADK (Agent orchestration)
+• Gemini 2.5 Pro/Flash (AI models)
+• Google Search API (Data source)
+• Google Cloud Run (Deployment)
+• Python + FastAPI (Framework)

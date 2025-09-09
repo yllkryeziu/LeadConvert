@@ -192,38 +192,32 @@ pip install -r search_agent/requirements.txt
 pip install selenium pillow
 ```
 
-### 3. Deploy Agents
+### 3. Deploy LeadConvert
 
 #### Local Development
 ```bash
-# Run contextual agent
-cd contextual_agent
-python -m contextual_agent --host 0.0.0.0 --port 8080
+# Run any agent locally
+cd <agent_directory>
+python -m <agent_name> --host 0.0.0.0 --port <port_number>
 
-# Run search agent
-cd search_agent
-python -m search_agent --host 0.0.0.0 --port 8081
+# Example for running multiple agents:
+# Terminal 1: cd contextual_agent && python -m contextual_agent --host 0.0.0.0 --port 8080
+# Terminal 2: cd search_agent && python -m search_agent --host 0.0.0.0 --port 8081
 ```
 
 #### Google Cloud Run Deployment
 ```bash
-# Deploy search agent to Cloud Run
+# General deployment command for any agent
 adk deploy cloud_run \
 --project=$GOOGLE_CLOUD_PROJECT \
 --region=$GOOGLE_CLOUD_LOCATION \
---service_name=search-agent \
---app_name=search_agent \
+--service_name=<service-name> \
+--app_name=<agent_directory> \
 --with_ui \
-./search_agent
+./<agent_directory>
 
-# Deploy contextual agent
-adk deploy cloud_run \
---project=$GOOGLE_CLOUD_PROJECT \
---region=$GOOGLE_CLOUD_LOCATION \
---service_name=contextual-agent \
---app_name=contextual_agent \
---with_ui \
-./contextual_agent
+# Deploy all agents with unique service names and ports
+# Repeat the above command for each agent directory (contextual_agent, search_agent, etc.)
 ```
 
 ## 🔧 Agent Interaction Patterns
